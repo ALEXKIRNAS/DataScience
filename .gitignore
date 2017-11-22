@@ -99,3 +99,10 @@ ENV/
 
 # mypy
 .mypy_cache/
+
+# MacOS
+*./DS_Store
+
+# Datasets
+./CS231n/assignment1/cs231n/datasets/cifar-10-batches-py
+
