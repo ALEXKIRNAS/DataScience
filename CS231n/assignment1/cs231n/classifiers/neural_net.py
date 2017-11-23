@@ -98,15 +98,13 @@ class TwoLayerNet(object):
     #############################################################################
     
     num_train = N
-    exp_scores = np.exp(scores - np.max(scores, axis=1, keepdims=True))
+    exp_scores = np.exp(scores - np.max(scores, axis=1).reshape(-1, 1))
     probs = exp_scores / np.sum(exp_scores, axis=1).reshape(-1, 1)
 
     data_loss = -np.sum(np.log(probs[np.arange(num_train), y]))
     data_loss /= num_train
-    
-    reg_loss = reg * np.sum(W2 * W2)
-    reg_loss += reg * np.sum(W1 * W1)
 
+    reg_loss = reg * (np.sum(W1 * W1) + np.sum(W2 * W2))
     loss = data_loss + reg_loss
 
     #############################################################################
