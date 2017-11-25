@@ -105,4 +105,4 @@ ENV/
 
 # Datasets
 ./CS231n/assignment1/cs231n/datasets/cifar-10-batches-py
-
+./CS231n/assignment2/cs231n/datasets/cifar-10-batches-py

@@ -197,6 +197,8 @@ class FullyConnectedNet(object):
         for layer_index in range(1, len(layers_dims)):
            kernel_name = 'W%d' % layer_index
            bias_name = 'b%d' % layer_index
+           gamma_name = 'gamma%d' % layer_index
+           beta_name = 'beta%d' % layer_index
 
            kernel_weights = np.random.randn(layers_dims[layer_index - 1], 
                                             layers_dims[layer_index])
@@ -204,8 +206,15 @@ class FullyConnectedNet(object):
 
            bias_weights = np.zeros(layers_dims[layer_index])
 
+           gamma_weights = np.ones(layers_dims[layer_index])
+           beta_weights = np.zeros(layers_dims[layer_index])
+
            self.params[kernel_name] = kernel_weights
            self.params[bias_name] = bias_weights
+
+           if self.use_batchnorm and layer_index != self.num_layers:
+               self.params[gamma_name] = gamma_weights
+               self.params[beta_name] = beta_weights
         
         ############################################################################
         #                             END OF YOUR CODE                             #
@@ -278,7 +287,15 @@ class FullyConnectedNet(object):
             if layer_index == num_layers:
                 layers_states[layer_index] = affine_forward(previous_layer_score, W, b)
             else:
-                layers_states[layer_index] = affine_relu_forward(previous_layer_score, W, b)
+                if self.use_batchnorm:
+                    gamma = self.params['gamma%d' % layer_index]
+                    beta = self.params['beta%d' % layer_index]
+                    bn_param = self.bn_params[layer_index - 1]
+
+                    layers_states[layer_index] = affine_bn_relu_forward(previous_layer_score, W, b,
+                                                                        gamma, beta, bn_param)
+                else:
+                    layers_states[layer_index] = affine_relu_forward(previous_layer_score, W, b)
 
 
         scores = layers_states[num_layers][0]
@@ -319,13 +336,27 @@ class FullyConnectedNet(object):
             if layer_index == num_layers:
                 dx, dW, db = affine_backward(dscores, layer_cache)
             else:
-                dx, dW, db = affine_relu_backward(dx, layer_cache)
+                if self.use_batchnorm: 
+                    gamma = self.params['gamma%d' % layer_index]
+                    beta = self.params['beta%d' % layer_index]
+                    bn_param = self.bn_params[layer_index - 1]
+
+                    dx, dW, db, dgamma, dbeta = affine_bn_relu_backward(dx, layer_cache)
+                else:
+                    dx, dW, db = affine_relu_backward(dx, layer_cache)
 
             kernel_name = 'W%d' % layer_index
             bias_name = 'b%d' % layer_index
 
             grads[kernel_name] = dW + (self.reg * W)
             grads[bias_name] = db
+
+            if self.use_batchnorm and layer_index != num_layers:
+                gamma_name = 'gamma%d' % layer_index
+                beta_name = 'beta%d' % layer_index
+
+                grads[gamma_name] = dgamma
+                grads[beta_name] = dbeta
 
         loss = data_loss + reg_loss
 
