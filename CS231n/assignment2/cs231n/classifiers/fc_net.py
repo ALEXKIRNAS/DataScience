@@ -215,6 +215,7 @@ class FullyConnectedNet(object):
            if self.use_batchnorm and layer_index != self.num_layers:
                self.params[gamma_name] = gamma_weights
                self.params[beta_name] = beta_weights
+
         
         ############################################################################
         #                             END OF YOUR CODE                             #
@@ -277,6 +278,7 @@ class FullyConnectedNet(object):
         num_layers = self.num_layers
         layers_states = dict()
         layers_states[0] = (X, None)  # layer score, layer cache
+        dropout_cache = dict()
 
         for layer_index in range(1, num_layers + 1):
             W = self.params['W%d' % layer_index]
@@ -296,6 +298,13 @@ class FullyConnectedNet(object):
                                                                         gamma, beta, bn_param)
                 else:
                     layers_states[layer_index] = affine_relu_forward(previous_layer_score, W, b)
+
+                if self.use_dropout:
+                    (layer_scores, 
+                     dropout_cache[layer_index]) = dropout_forward(layers_states[layer_index][0], 
+                                                                   self.dropout_param)
+
+                    layers_states[layer_index] = (layer_scores, layers_states[layer_index][1])
 
 
         scores = layers_states[num_layers][0]
@@ -336,6 +345,9 @@ class FullyConnectedNet(object):
             if layer_index == num_layers:
                 dx, dW, db = affine_backward(dscores, layer_cache)
             else:
+                if self.use_dropout:
+                    dx = dropout_backward(dx, dropout_cache[layer_index])
+
                 if self.use_batchnorm: 
                     gamma = self.params['gamma%d' % layer_index]
                     beta = self.params['beta%d' % layer_index]
