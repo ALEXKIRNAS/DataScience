@@ -144,17 +144,16 @@ class CaptioningRNN(object):
         if self.cell_type == 'rnn':
             h, rnn_cache = rnn_forward(captions_emb, h0, Wx, Wh, b)
         else:
-            raise NotImplementedError('Loss for LSTM not implemented yet')
+            h, rnn_cache = lstm_forward(captions_emb, h0, Wx, Wh, b)
             
         temporal_out, temporal_cache = temporal_affine_forward(h, W_vocab, b_vocab)
-        
         loss, dout = temporal_softmax_loss(temporal_out, captions_out, mask)
+        dtemp, grads['W_vocab'], grads['b_vocab'] = temporal_affine_backward(dout, temporal_cache)
         
-        dtemp, grads['W_vocab'], grads['b_vocab'] = temporal_affine_backward(dout, temporal_cache)      
         if self.cell_type == 'rnn':
             drnn, dh0, grads['Wx'], grads['Wh'], grads['b'] = rnn_backward(dtemp, rnn_cache)
         else:
-            raise NotImplementedError('Loss for LSTM not implemented yet')
+            drnn, dh0, grads['Wx'], grads['Wh'], grads['b'] = lstm_backward(dtemp, rnn_cache)
             
         grads['W_embed'] = word_embedding_backward(drnn, emb_cache)
         dfeatures, grads['W_proj'], grads['b_proj'] = affine_backward(dh0, features_cache)
@@ -221,7 +220,10 @@ class CaptioningRNN(object):
         # a loop.                                                                 #
         ###########################################################################
         
-        h0, _ = affine_forward(features, W_proj, b_proj)
+        h, _ = affine_forward(features, W_proj, b_proj)
+        
+        if self.cell_type == 'lstm':
+            c = np.zeros_like(h)
         
         x = np.array([self._start for i in range(N)])
         captions[:, 0] = self._start
@@ -230,12 +232,14 @@ class CaptioningRNN(object):
             x_emb, _ = word_embedding_forward(x, W_embed)
             
             if self.cell_type == 'rnn':
-                h0, _ = rnn_step_forward(x_emb, h0, Wx, Wh, b)
-            elif self.cell_type == 'lstm':
-                raise NotImplementedError('Test for LSTM not implemented yet')
+                h, _ = rnn_step_forward(x_emb, h, Wx, Wh, b)
+            else:
+                h, c, _ = lstm_step_forward(x_emb, h, c, Wx, Wh, b)
             
-            vocab_out, _ = affine_forward(h0, W_vocab, b_vocab)
-            captions[:, t] = np.argmax(vocab_out, axis=1)
+            vocab_out, _ = affine_forward(h, W_vocab, b_vocab)
+            
+            x = np.argmax(vocab_out, axis=1)
+            captions[:, t] = x 
         
         ############################################################################
         #                             END OF YOUR CODE                             #
